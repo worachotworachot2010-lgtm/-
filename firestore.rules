@@ -1,0 +1,182 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // Validation Blueprints
+    function isValidKrathong(data) {
+      return data.keys().hasAll([
+        'authorId',
+        'senderName',
+        'wish',
+        'category',
+        'pier',
+        'baseId',
+        'flowerId',
+        'candleId',
+        'ornamentId',
+        'glowColor',
+        'laneY',
+        'startOffset',
+        'driftSpeed',
+        'blessingsCount',
+        'visibility',
+        'createdAt'
+      ])
+      && data.keys().hasOnly([
+        'authorId',
+        'senderName',
+        'wish',
+        'category',
+        'pier',
+        'baseId',
+        'flowerId',
+        'candleId',
+        'ornamentId',
+        'glowColor',
+        'laneY',
+        'startOffset',
+        'driftSpeed',
+        'blessingsCount',
+        'visibility',
+        'createdAt'
+      ])
+      && isValidId(data.authorId)
+      && data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 40
+      && data.wish is string && data.wish.size() >= 1 && data.wish.size() <= 280
+      && data.category in ['career', 'love', 'health', 'fortune', 'apology']
+      && data.pier in ['chaophraya', 'rama8', 'ping', 'mekong']
+      && data.baseId in [
+        'banana-leaf',
+        'lotus-pink',
+        'coconut-shell',
+        'bread-turtle',
+        'crystal-ice',
+        'rainbow-tier',
+        'golden-swan',
+        'naga-boat',
+        'corn-husk',
+        'lotus-white',
+        'royal-crown',
+        'bread-fish'
+      ]
+      && data.flowerId in [
+        'marigold',
+        'rose',
+        'jasmine',
+        'orchid',
+        'amaranth',
+        'sunflower',
+        'sakura',
+        'champa'
+      ]
+      && data.candleId in [
+        'classic-gold',
+        'lotus-candle',
+        'twisted-thai',
+        'moonbeam',
+        'emerald-wax',
+        'twin-love'
+      ]
+      && data.ornamentId in [
+        'incense-garland',
+        'lucky-coins',
+        'sparkler',
+        'mini-lantern',
+        'paper-umbrella',
+        'gold-leaf'
+      ]
+      && data.glowColor in ['amber', 'emerald', 'rose', 'sky', 'violet', 'coral']
+      && data.laneY is number && data.laneY >= 0.12 && data.laneY <= 0.88
+      && data.startOffset is number && data.startOffset >= 0 && data.startOffset <= 1
+      && data.driftSpeed is number && data.driftSpeed >= 0.5 && data.driftSpeed <= 1.5
+      && data.blessingsCount is int && data.blessingsCount >= 0
+      && data.visibility == 'public'
+      && data.createdAt is timestamp;
+    }
+
+    function isValidKrathongBlessing(data, krathongId, userId) {
+      return data.keys().hasAll(['authorId', 'krathongId', 'createdAt'])
+      && data.keys().hasOnly(['authorId', 'krathongId', 'createdAt'])
+      && data.authorId == request.auth.uid
+      && data.authorId == userId
+      && isValidId(data.authorId)
+      && data.krathongId == krathongId
+      && isValidId(data.krathongId)
+      && data.createdAt == request.time;
+    }
+
+    // Shared River Krathongs Collection
+    match /krathongs/{krathongId} {
+      // Public river feed (no PII stored; visibility explicitly checked)
+      allow get: if isValidId(krathongId) && (resource == null || existing().visibility == 'public');
+      allow list: if existing().visibility == 'public';
+
+      allow create: if isVerifiedUser()
+        && isValidId(krathongId)
+        && isValidKrathong(incoming())
+        && incoming().authorId == request.auth.uid
+        && incoming().blessingsCount == 0
+        && incoming().createdAt == request.time;
+
+      // Action-based atomic update: only incrementing blessingsCount by +1 while within 24 hours
+      allow update: if isVerifiedUser()
+        && isValidId(krathongId)
+        && isValidKrathong(incoming())
+        && existing().createdAt > request.time - duration.value(24, 'h')
+        && incoming().diff(existing()).affectedKeys().hasOnly(['blessingsCount'])
+        && incoming().authorId == existing().authorId
+        && incoming().createdAt == existing().createdAt
+        && incoming().blessingsCount == existing().blessingsCount + 1
+        && !exists(/databases/$(database)/documents/krathongs/$(krathongId)/blessings/$(request.auth.uid))
+        && existsAfter(/databases/$(database)/documents/krathongs/$(krathongId)/blessings/$(request.auth.uid));
+
+      // Strictly owner-only deletion: nobody can delete another person's krathong
+      allow delete: if isVerifiedUser()
+        && isValidId(krathongId)
+        && existing().authorId == request.auth.uid;
+
+      // Blessings Subcollection (Master Gate + Atomicity)
+      match /blessings/{userId} {
+        allow get: if isValidId(krathongId) && isValidId(userId) && isSignedIn() && request.auth.uid == userId;
+        allow list: if isSignedIn() && existing().authorId == request.auth.uid;
+
+        allow create: if isVerifiedUser()
+          && isValidId(krathongId)
+          && isValidId(userId)
+          && userId == request.auth.uid
+          && isValidKrathongBlessing(incoming(), krathongId, userId)
+          && exists(/databases/$(database)/documents/krathongs/$(krathongId))
+          && getAfter(/databases/$(database)/documents/krathongs/$(krathongId)).data.blessingsCount ==
+             get(/databases/$(database)/documents/krathongs/$(krathongId)).data.blessingsCount + 1;
+
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+  }
+}

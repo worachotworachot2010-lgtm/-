@@ -1,0 +1,8 @@
+{
+  "name": "Big Maze Adventure",
+  "description": "เกมผจญภัยเขาวงกตภาพพิกเซลอาร์ตย้อนยุค เลือกตัวละครฮีโร่พร้อมไฟฉายเฉพาะตัว ลุย 30 ด่าน 30 แมพไม่ซ้ำกัน สุ่มสร้างด้วย Seed และ 5 โซนสภาพแวดล้อม ตามหากระดาษรหัสผ่านและไขรหัสประตูทางออก",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

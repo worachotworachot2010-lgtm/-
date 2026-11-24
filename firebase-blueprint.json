@@ -1,0 +1,186 @@
+{
+  "entities": {
+    "Krathong": {
+      "title": "Krathong",
+      "description": "A user-customized Loy Krathong lantern floating on the shared online river with a 24-hour lifespan.",
+      "type": "object",
+      "properties": {
+        "authorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the creator"
+        },
+        "senderName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "Display name or nickname shown on the river"
+        },
+        "wish": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 280,
+          "description": "The user's blessing or wish message"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["career", "love", "health", "fortune", "apology"],
+          "description": "Wish category"
+        },
+        "pier": {
+          "type": "string",
+          "enum": ["chaophraya", "rama8", "ping", "mekong"],
+          "description": "River pier zone where the krathong was launched"
+        },
+        "baseId": {
+          "type": "string",
+          "enum": [
+            "banana-leaf",
+            "lotus-pink",
+            "coconut-shell",
+            "bread-turtle",
+            "crystal-ice",
+            "rainbow-tier",
+            "golden-swan",
+            "naga-boat",
+            "corn-husk",
+            "lotus-white",
+            "royal-crown",
+            "bread-fish"
+          ],
+          "description": "Chosen krathong base style"
+        },
+        "flowerId": {
+          "type": "string",
+          "enum": [
+            "marigold",
+            "rose",
+            "jasmine",
+            "orchid",
+            "amaranth",
+            "sunflower",
+            "sakura",
+            "champa"
+          ],
+          "description": "Chosen flower decoration"
+        },
+        "candleId": {
+          "type": "string",
+          "enum": [
+            "classic-gold",
+            "lotus-candle",
+            "twisted-thai",
+            "moonbeam",
+            "emerald-wax",
+            "twin-love"
+          ],
+          "description": "Chosen candle style"
+        },
+        "ornamentId": {
+          "type": "string",
+          "enum": [
+            "incense-garland",
+            "lucky-coins",
+            "sparkler",
+            "mini-lantern",
+            "paper-umbrella",
+            "gold-leaf"
+          ],
+          "description": "Chosen lucky ornament"
+        },
+        "glowColor": {
+          "type": "string",
+          "enum": ["amber", "emerald", "rose", "sky", "violet", "coral"],
+          "description": "Chosen water ripple and aura glow color"
+        },
+        "laneY": {
+          "type": "number",
+          "description": "Vertical river depth placement between 0.12 and 0.88"
+        },
+        "startOffset": {
+          "type": "number",
+          "description": "Initial horizontal drift offset between 0 and 1"
+        },
+        "driftSpeed": {
+          "type": "number",
+          "description": "Horizontal drift speed multiplier between 0.5 and 1.5"
+        },
+        "blessingsCount": {
+          "type": "number",
+          "description": "Total number of Sathu/blessing reactions received"
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["public"],
+          "description": "Public visibility flag for shared river queries"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the krathong was floated (expires after 24 hours)"
+        }
+      },
+      "required": [
+        "authorId",
+        "senderName",
+        "wish",
+        "category",
+        "pier",
+        "baseId",
+        "flowerId",
+        "candleId",
+        "ornamentId",
+        "glowColor",
+        "laneY",
+        "startOffset",
+        "driftSpeed",
+        "blessingsCount",
+        "visibility",
+        "createdAt"
+      ]
+    },
+    "KrathongBlessing": {
+      "title": "KrathongBlessing",
+      "description": "A single-per-user blessing/Sathu reaction attached to a floating krathong.",
+      "type": "object",
+      "properties": {
+        "authorId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the user who blessed the krathong"
+        },
+        "krathongId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent krathong document ID"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the blessing"
+        }
+      },
+      "required": ["authorId", "krathongId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/krathongs/{krathongId}": {
+      "schema": {
+        "$ref": "#/entities/Krathong"
+      },
+      "description": "Public shared river krathongs created by authenticated users with a 24-hour floating window."
+    },
+    "/krathongs/{krathongId}/blessings/{userId}": {
+      "schema": {
+        "$ref": "#/entities/KrathongBlessing"
+      },
+      "description": "Per-user blessing records ensuring atomic one-time Sathu count increments."
+    }
+  }
+}
